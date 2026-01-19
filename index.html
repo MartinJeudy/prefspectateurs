@@ -1977,7 +1977,7 @@
             submitBtn.disabled = false;
 
             // Afficher la modal contact
-            contactModal.classList.add('show');
+            contactModal.classList.add('open');
             emailInput.focus();
 
             if (DEBUG) console.log('Affichage de la modal contact pour utilisateur non connecté');
@@ -2041,7 +2041,7 @@
           submitContactBtn.disabled = true;
 
           // Fermer la modal contact
-          contactModal.classList.remove('show');
+          contactModal.classList.remove('open');
 
           // Envoyer les données
           sendDataToWebhook(pendingFormData, pendingRedirectUrl);
