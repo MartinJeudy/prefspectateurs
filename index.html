@@ -262,24 +262,6 @@
           <div id="locationSuggestions" class="city-suggestions hidden"></div>
         </div>
 
-        <!-- Section contact pour utilisateurs non connectés -->
-        <div id="contactSection" class="space-y-3 hidden">
-          <div class="space-y-2">
-            <label for="emailInput" class="block font-medium">Email <span class="text-red-500">*</span></label>
-            <input type="email" id="emailInput"
-                   class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:border-primary"
-                   placeholder="votre@email.com" autocomplete="email">
-            <p class="text-xs text-gray-500">Pour vous prévenir des événements près de chez vous</p>
-          </div>
-          <div class="space-y-2">
-            <label for="phoneInput" class="block font-medium">Téléphone <span class="text-gray-400 text-sm font-normal">(facultatif)</span></label>
-            <input type="tel" id="phoneInput"
-                   class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:border-primary"
-                   placeholder="06 XX XX XX XX" autocomplete="tel">
-            <p class="text-xs text-gray-500">Pour recevoir des notifications par SMS</p>
-          </div>
-        </div>
-
         <div class="space-y-3">
           <label class="block font-medium">Préférences artistiques <span class="text-red-500">*</span></label>
 
@@ -383,7 +365,41 @@
       </div>
     </div>
   </div>
-  
+
+  <!-- Modal étape 2 : Contact pour utilisateurs non connectés -->
+  <div id="contactModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="text-xl font-bold">Dernière étape !</h2>
+      </div>
+      <div class="modal-body">
+        <div class="text-center mb-4">
+          <p class="text-gray-600">Pour vous prévenir des événements près de chez vous, laissez-nous vos coordonnées.</p>
+        </div>
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <label for="emailInput" class="block font-medium text-left">Email <span class="text-red-500">*</span></label>
+            <input type="email" id="emailInput"
+                   class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-primary focus:outline-none"
+                   placeholder="votre@email.com" autocomplete="email">
+          </div>
+          <div class="space-y-2">
+            <label for="phoneInput" class="block font-medium text-left">Téléphone <span class="text-gray-400 text-sm font-normal">(facultatif)</span></label>
+            <input type="tel" id="phoneInput"
+                   class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-primary focus:outline-none"
+                   placeholder="06 XX XX XX XX" autocomplete="tel">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer flex flex-col gap-3">
+        <button id="submitContactBtn" class="w-full px-6 py-3 bg-[#EE6553] text-white rounded-xl font-bold hover:bg-opacity-90">
+          Valider et découvrir les événements
+        </button>
+        <p class="text-xs text-gray-400 text-center">Vos données sont protégées et ne seront jamais partagées.</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Modales pour les catégories -->
   <!-- Expositions -->
   <div id="expositionsModal" class="modal">
@@ -849,9 +865,10 @@
       const toastError = document.getElementById('toastError');
       const emailField = document.getElementById('email');
       const phoneField = document.getElementById('phoneField');
-      const contactSection = document.getElementById('contactSection');
+      const contactModal = document.getElementById('contactModal');
       const emailInput = document.getElementById('emailInput');
       const phoneInput = document.getElementById('phoneInput');
+      const submitContactBtn = document.getElementById('submitContactBtn');
       const surpriseMeBtn = document.getElementById('surpriseMeBtn');
       const categoriesWrapper = document.getElementById('categoriesWrapper');
       
@@ -893,23 +910,25 @@
       // Variable pour savoir si l'utilisateur est "connecté" (email fourni dans l'URL)
       let isConnectedUser = false;
 
+      // Variable pour stocker les données du formulaire en attente (pour les non connectés)
+      let pendingFormData = null;
+      let pendingRedirectUrl = null;
+
       if (emailFromUrl) {
         // Utilisateur connecté : email fourni via l'URL
         isConnectedUser = true;
         emailField.value = emailFromUrl;
-        contactSection.classList.add('hidden');
         if (DEBUG) console.log('Utilisateur connecté - Email trouvé dans l\'URL:', emailFromUrl);
 
         // Essayer de charger les préférences existantes
         tryLoadFromLocalStorage();
       } else {
-        // Utilisateur non connecté : afficher les champs email et téléphone
+        // Utilisateur non connecté : la modal contact s'affichera après soumission des préférences
         isConnectedUser = false;
-        contactSection.classList.remove('hidden');
-        if (DEBUG) console.log('Utilisateur non connecté - Affichage du formulaire de contact');
+        if (DEBUG) console.log('Utilisateur non connecté - Modal contact sera affichée après soumission');
       }
 
-      // Synchroniser les champs de saisie avec les champs hidden
+      // Synchroniser les champs de saisie avec les champs hidden (pour la modal contact)
       emailInput.addEventListener('input', function() {
         emailField.value = this.value.trim();
       });
@@ -1789,15 +1808,8 @@
             }
           });
           
-          // Validation des champs obligatoires
+          // Validation des champs obligatoires (étape 1 : préférences)
           let missingFields = [];
-
-          // Pour les utilisateurs non connectés, l'email est obligatoire
-          if (!isConnectedUser) {
-            if (!emailField.value || !emailField.value.includes('@')) {
-              missingFields.push('Email valide');
-            }
-          }
 
           if (!cityField.value) missingFields.push('Ville');
           if (!zipField.value) missingFields.push('Code postal');
@@ -1945,42 +1957,114 @@
             console.log("--- Données formatées pour Brevo et le sheet ---");
             console.log(JSON.stringify(formData, null, 2));
           }
-          
+
           // Afficher l'état de chargement
           const submitBtn = document.getElementById('submitBtn');
           submitBtn.innerHTML = 'Envoi en cours...';
           submitBtn.disabled = true;
-          
+
           // Construire l'URL de redirection
           const redirectUrl = buildRedirectUrl(formattedCityName);
-          
-          // Envoi des données au webhook
-          fetch('https://hook.eu1.make.com/tw8g22xu5dyulrui9613awqrw6p8rmfw', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-          })
-          .then(response => {
-            if (DEBUG) console.log('Réponse du webhook:', response.status);
-            
-            // Stocker les préférences localement avec l'email comme partie de la clé
-            localStorage.setItem(`hormur_preferences_${emailField.value}`, JSON.stringify(formData));
-            
-            // Afficher la confirmation et rediriger
-            showConfirmationModal(redirectUrl);
-            
-            return response.ok;
-          })
-          .catch(error => {
-            if (DEBUG) console.error('Erreur lors de l\'envoi:', error);
-            
-            // Même en cas d'erreur, on continue avec la redirection pour la démo
-            localStorage.setItem(`hormur_preferences_${emailField.value}`, JSON.stringify(formData));
-            showConfirmationModal(redirectUrl);
-          });
+
+          // Si l'utilisateur n'est pas connecté, afficher la modal contact
+          if (!isConnectedUser) {
+            // Stocker les données en attente
+            pendingFormData = formData;
+            pendingRedirectUrl = redirectUrl;
+
+            // Réinitialiser le bouton
+            submitBtn.innerHTML = 'Sauvegarder mes préférences';
+            submitBtn.disabled = false;
+
+            // Afficher la modal contact
+            contactModal.classList.add('show');
+            emailInput.focus();
+
+            if (DEBUG) console.log('Affichage de la modal contact pour utilisateur non connecté');
+            return;
+          }
+
+          // Utilisateur connecté : envoi direct des données au webhook
+          sendDataToWebhook(formData, redirectUrl);
         });
+      });
+
+      // Fonction pour envoyer les données au webhook
+      function sendDataToWebhook(formData, redirectUrl) {
+        fetch('https://hook.eu1.make.com/tw8g22xu5dyulrui9613awqrw6p8rmfw', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        })
+        .then(response => {
+          if (DEBUG) console.log('Réponse du webhook:', response.status);
+
+          // Stocker les préférences localement avec l'email comme partie de la clé
+          localStorage.setItem(`hormur_preferences_${emailField.value}`, JSON.stringify(formData));
+
+          // Afficher la confirmation et rediriger
+          showConfirmationModal(redirectUrl);
+
+          return response.ok;
+        })
+        .catch(error => {
+          if (DEBUG) console.error('Erreur lors de l\'envoi:', error);
+
+          // Même en cas d'erreur, on continue avec la redirection pour la démo
+          localStorage.setItem(`hormur_preferences_${emailField.value}`, JSON.stringify(formData));
+          showConfirmationModal(redirectUrl);
+        });
+      }
+
+      // Gestion du bouton de soumission de la modal contact
+      submitContactBtn.addEventListener('click', function() {
+        // Valider l'email
+        const email = emailInput.value.trim();
+        if (!email || !email.includes('@')) {
+          showToast(toastError, 'Veuillez entrer une adresse email valide');
+          emailInput.focus();
+          return;
+        }
+
+        // Mettre à jour les données avec l'email et le téléphone
+        emailField.value = email;
+        phoneField.value = phoneInput.value.trim();
+
+        if (pendingFormData) {
+          pendingFormData.email = email;
+          pendingFormData.PHONE = phoneField.value || '';
+
+          // Afficher l'état de chargement
+          submitContactBtn.innerHTML = 'Envoi en cours...';
+          submitContactBtn.disabled = true;
+
+          // Fermer la modal contact
+          contactModal.classList.remove('show');
+
+          // Envoyer les données
+          sendDataToWebhook(pendingFormData, pendingRedirectUrl);
+
+          // Réinitialiser le bouton
+          submitContactBtn.innerHTML = 'Valider et découvrir les événements';
+          submitContactBtn.disabled = false;
+        }
+      });
+
+      // Permettre la validation avec la touche Entrée dans les champs de la modal contact
+      emailInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitContactBtn.click();
+        }
+      });
+
+      phoneInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitContactBtn.click();
+        }
       });
     });
   </script>
