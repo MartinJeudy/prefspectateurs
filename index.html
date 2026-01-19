@@ -245,7 +245,8 @@
       <h1 class="text-2xl font-bold mb-6 text-center">Vos préférences</h1>
       
       <form id="preferencesForm" class="space-y-6">
-        <input type="hidden" id="email" name="email" value="demo@hormur.com">
+        <input type="hidden" id="email" name="email" value="">
+        <input type="hidden" id="phoneField" name="PHONE" value="">
         <input type="hidden" id="cityField" name="CITY">
         <input type="hidden" id="zipField" name="ZIP">
         <input type="hidden" id="latField" name="LAT">
@@ -255,12 +256,30 @@
         
         <div class="space-y-3 relative">
           <label for="location" class="block font-medium">Localisation <span class="text-red-500">*</span></label>
-          <input type="text" id="location" 
-                 class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:border-primary" 
+          <input type="text" id="location"
+                 class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:border-primary"
                  placeholder="Ville ou code postal" autocomplete="off">
           <div id="locationSuggestions" class="city-suggestions hidden"></div>
         </div>
-        
+
+        <!-- Section contact pour utilisateurs non connectés -->
+        <div id="contactSection" class="space-y-3 hidden">
+          <div class="space-y-2">
+            <label for="emailInput" class="block font-medium">Email <span class="text-red-500">*</span></label>
+            <input type="email" id="emailInput"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:border-primary"
+                   placeholder="votre@email.com" autocomplete="email">
+            <p class="text-xs text-gray-500">Pour vous prévenir des événements près de chez vous</p>
+          </div>
+          <div class="space-y-2">
+            <label for="phoneInput" class="block font-medium">Téléphone <span class="text-gray-400 text-sm font-normal">(facultatif)</span></label>
+            <input type="tel" id="phoneInput"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:border-primary"
+                   placeholder="06 XX XX XX XX" autocomplete="tel">
+            <p class="text-xs text-gray-500">Pour recevoir des notifications par SMS</p>
+          </div>
+        </div>
+
         <div class="space-y-3">
           <label class="block font-medium">Préférences artistiques <span class="text-red-500">*</span></label>
 
@@ -829,6 +848,10 @@
       const toastSuccess = document.getElementById('toastSuccess');
       const toastError = document.getElementById('toastError');
       const emailField = document.getElementById('email');
+      const phoneField = document.getElementById('phoneField');
+      const contactSection = document.getElementById('contactSection');
+      const emailInput = document.getElementById('emailInput');
+      const phoneInput = document.getElementById('phoneInput');
       const surpriseMeBtn = document.getElementById('surpriseMeBtn');
       const categoriesWrapper = document.getElementById('categoriesWrapper');
       
@@ -866,16 +889,34 @@
       // Initialiser l'email depuis l'URL s'il existe
       const urlParams = new URLSearchParams(window.location.search);
       const emailFromUrl = urlParams.get('email');
-      
+
+      // Variable pour savoir si l'utilisateur est "connecté" (email fourni dans l'URL)
+      let isConnectedUser = false;
+
       if (emailFromUrl) {
+        // Utilisateur connecté : email fourni via l'URL
+        isConnectedUser = true;
         emailField.value = emailFromUrl;
-        if (DEBUG) console.log('Email trouvé dans l\'URL:', emailFromUrl);
-        
+        contactSection.classList.add('hidden');
+        if (DEBUG) console.log('Utilisateur connecté - Email trouvé dans l\'URL:', emailFromUrl);
+
         // Essayer de charger les préférences existantes
         tryLoadFromLocalStorage();
       } else {
-        if (DEBUG) console.log('Email par défaut utilisé:', emailField.value);
+        // Utilisateur non connecté : afficher les champs email et téléphone
+        isConnectedUser = false;
+        contactSection.classList.remove('hidden');
+        if (DEBUG) console.log('Utilisateur non connecté - Affichage du formulaire de contact');
       }
+
+      // Synchroniser les champs de saisie avec les champs hidden
+      emailInput.addEventListener('input', function() {
+        emailField.value = this.value.trim();
+      });
+
+      phoneInput.addEventListener('input', function() {
+        phoneField.value = this.value.trim();
+      });
       
       // Fonction pour afficher un toast
       function showToast(toastElement, message) {
@@ -1751,6 +1792,13 @@
           // Validation des champs obligatoires
           let missingFields = [];
 
+          // Pour les utilisateurs non connectés, l'email est obligatoire
+          if (!isConnectedUser) {
+            if (!emailField.value || !emailField.value.includes('@')) {
+              missingFields.push('Email valide');
+            }
+          }
+
           if (!cityField.value) missingFields.push('Ville');
           if (!zipField.value) missingFields.push('Code postal');
           // En mode "Surprenez-moi", les préférences sont automatiquement remplies
@@ -1833,6 +1881,8 @@
           const formData = {
             // Données de base
             email: emailField.value,
+            PHONE: phoneField.value || '',
+            IS_CONNECTED_USER: isConnectedUser ? "true" : "false",
             CITY: formattedCityName,
             ZIP: zipField.value,
             LAT: latField.value,
