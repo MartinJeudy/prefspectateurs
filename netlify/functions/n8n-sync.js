@@ -18,7 +18,7 @@ exports.handler = async (event) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": "Basic " + Buffer.from(":" + authPassword).toString("base64"),
+        "Authorization": "Basic " + Buffer.from("n8n:" + authPassword).toString("base64"),
       },
       body: JSON.stringify(formData),
     });
