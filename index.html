@@ -1991,29 +1991,34 @@
 
       // Fonction pour envoyer les données au webhook
       function sendDataToWebhook(formData, redirectUrl) {
-        fetch('https://hook.eu1.make.com/tw8g22xu5dyulrui9613awqrw6p8rmfw', {
+        // Envoi parallèle vers Make et n8n
+        const makePromise = fetch('https://hook.eu1.make.com/tw8g22xu5dyulrui9613awqrw6p8rmfw', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
-        })
-        .then(response => {
-          if (DEBUG) console.log('Réponse du webhook:', response.status);
+        }).then(response => {
+          if (DEBUG) console.log('Réponse du webhook Make:', response.status);
+          return response.ok;
+        }).catch(error => {
+          if (DEBUG) console.error('Erreur webhook Make:', error);
+        });
 
+        const n8nPromise = fetch('/.netlify/functions/n8n-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        }).then(response => {
+          if (DEBUG) console.log('Réponse du webhook n8n:', response.status);
+          return response.ok;
+        }).catch(error => {
+          if (DEBUG) console.error('Erreur webhook n8n:', error);
+        });
+
+        Promise.allSettled([makePromise, n8nPromise]).then(() => {
           // Stocker les préférences localement avec l'email comme partie de la clé
           localStorage.setItem(`hormur_preferences_${emailField.value}`, JSON.stringify(formData));
 
           // Afficher la confirmation et rediriger
-          showConfirmationModal(redirectUrl);
-
-          return response.ok;
-        })
-        .catch(error => {
-          if (DEBUG) console.error('Erreur lors de l\'envoi:', error);
-
-          // Même en cas d'erreur, on continue avec la redirection pour la démo
-          localStorage.setItem(`hormur_preferences_${emailField.value}`, JSON.stringify(formData));
           showConfirmationModal(redirectUrl);
         });
       }
